@@ -1,0 +1,6 @@
+/musicgo.exe
+/data/music.db
+/data/music.db-shm
+/data/music.db-wal
+*.mp3
+.idea

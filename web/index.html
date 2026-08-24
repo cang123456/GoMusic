@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161616">
+  <title>MusicGo</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="MusicGo 首页">
+      <span class="brand-mark" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </span>
+      <span>MusicGo</span>
+    </a>
+    <button class="command-button" id="uploadButton" type="button">
+      <i data-lucide="upload" aria-hidden="true"></i>
+      <span>添加歌曲</span>
+    </button>
+    <input id="fileInput" type="file" accept=".mp3,.wav,.flac,.m4a,.ogg,audio/*" hidden>
+  </header>
+
+  <main class="app-shell">
+    <aside class="library" aria-labelledby="libraryTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">本地收藏</p>
+          <h2 id="libraryTitle">歌曲库</h2>
+        </div>
+        <span class="track-count" id="trackCount">0 首</span>
+      </div>
+
+      <label class="search-field" for="searchInput">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <input id="searchInput" type="search" placeholder="搜索歌曲" autocomplete="off">
+      </label>
+
+      <div class="track-list" id="trackList" aria-live="polite"></div>
+      <div class="empty-state" id="emptyState" hidden>
+        <i data-lucide="music-2" aria-hidden="true"></i>
+        <strong id="emptyMessage">歌曲库为空</strong>
+      </div>
+    </aside>
+
+    <section class="player" aria-labelledby="currentTitle">
+      <div class="player-visual">
+        <img
+          id="coverImage"
+          src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=realistic%20editorial%20photograph%2C%20close-up%20black%20vinyl%20record%20on%20a%20warm%20gray%20turntable%2C%20teal%20center%20label%2C%20soft%20window%20daylight%2C%20top-down%20view%2C%20clean%20modern%20music%20album%20artwork%2C%20no%20text%2C%20square%20composition&image_size=square_hd"
+          alt="唱片机上的黑胶唱片"
+        >
+        <div class="playing-indicator" id="playingIndicator" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="now-playing">
+        <p class="eyebrow" id="playbackStatus">正在载入</p>
+        <div class="title-row">
+          <div class="title-copy">
+            <h1 id="currentTitle">MusicGo</h1>
+            <p id="currentFilename">等待歌曲</p>
+          </div>
+          <button class="default-button" id="defaultButton" type="button" disabled>
+            <i data-lucide="star" aria-hidden="true"></i>
+            <span>设为默认</span>
+          </button>
+        </div>
+
+        <div class="timeline">
+          <input
+            id="progressInput"
+            class="range"
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            aria-label="播放进度"
+          >
+          <div class="time-row" aria-hidden="true">
+            <span id="currentTime">0:00</span>
+            <span id="duration">0:00</span>
+          </div>
+        </div>
+
+        <div class="transport">
+          <button class="icon-button" id="previousButton" type="button" title="上一首" aria-label="上一首">
+            <i data-lucide="skip-back" aria-hidden="true"></i>
+          </button>
+          <button class="play-button" id="playButton" type="button" title="播放" aria-label="播放">
+            <i data-lucide="play" aria-hidden="true"></i>
+          </button>
+          <button class="icon-button" id="nextButton" type="button" title="下一首" aria-label="下一首">
+            <i data-lucide="skip-forward" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="volume-row">
+          <button class="volume-button" id="muteButton" type="button" title="静音" aria-label="静音">
+            <i data-lucide="volume-2" aria-hidden="true"></i>
+          </button>
+          <input
+            id="volumeInput"
+            class="range volume-range"
+            type="range"
+            min="0"
+            max="1"
+            value="0.8"
+            step="0.01"
+            aria-label="音量"
+          >
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <audio id="audio" preload="metadata"></audio>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
