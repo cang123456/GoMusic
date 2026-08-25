@@ -223,23 +223,12 @@ function changeTrack(direction) {
 }
 
 function handleTrackEnded() {
-  const hasNextTrack = state.currentIndex < state.tracks.length - 1;
-  if (hasNextTrack) {
-    loadTrack(state.currentIndex + 1, true);
-    return;
-  }
   if (state.playbackMode === "loop") {
-    if (state.tracks.length === 1) {
-      elements.audio.currentTime = 0;
-      playCurrent();
-    } else {
-      loadTrack(0, true);
-    }
+    elements.audio.currentTime = 0;
+    playCurrent();
     return;
   }
-
-  updatePlaybackUI(false);
-  elements.playbackStatus.textContent = "播放完毕";
+  changeTrack(1);
 }
 
 function updatePlaybackUI(isPlaying) {
@@ -320,6 +309,7 @@ function updateVolumeIcon() {
 }
 
 function updatePlaybackModeUI() {
+  elements.audio.loop = state.playbackMode === "loop";
   elements.modeButtons.forEach((button) => {
     const isActive = button.dataset.playbackMode === state.playbackMode;
     button.classList.toggle("is-active", isActive);
