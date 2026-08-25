@@ -140,6 +140,7 @@ a:focus-visible {
 .icon-button svg,
 .play-button svg,
 .volume-button svg,
+.mode-button svg,
 .search-field svg,
 .empty-state svg {
   width: 19px;
@@ -544,10 +545,53 @@ a:focus-visible {
   fill: currentColor;
 }
 
+.mode-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 330px);
+  margin: 26px auto 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.mode-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 12px;
+  gap: 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.mode-button:hover {
+  color: var(--text);
+}
+
+.mode-button.is-active {
+  background: #3a3d38;
+  color: var(--accent);
+}
+
+.mode-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .volume-row {
   justify-content: center;
   max-width: 260px;
-  margin: 28px auto 0;
+  margin: 18px auto 0;
   gap: 8px;
 }
 

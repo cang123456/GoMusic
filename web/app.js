@@ -9,6 +9,7 @@ const elements = {
   emptyMessage: document.querySelector("#emptyMessage"),
   emptyState: document.querySelector("#emptyState"),
   fileInput: document.querySelector("#fileInput"),
+  modeButtons: document.querySelectorAll("[data-playback-mode]"),
   muteButton: document.querySelector("#muteButton"),
   nextButton: document.querySelector("#nextButton"),
   playButton: document.querySelector("#playButton"),
@@ -27,6 +28,7 @@ const elements = {
 const state = {
   tracks: [],
   currentIndex: -1,
+  playbackMode: "loop",
   toastTimer: 0,
   previousVolume: 0.8,
 };
@@ -87,6 +89,18 @@ async function loadTracks(selectedID = null, autoplay = true) {
     showToast(error.message, true);
     elements.playbackStatus.textContent = "连接失败";
   }
+}
+
+async function loadSettings() {
+  try {
+    const settings = await request("/api/settings");
+    if (settings.playback_mode === "loop" || settings.playback_mode === "sequence") {
+      state.playbackMode = settings.playback_mode;
+    }
+  } catch (error) {
+    showToast(error.message, true);
+  }
+  updatePlaybackModeUI();
 }
 
 function renderTrackList() {
@@ -208,6 +222,26 @@ function changeTrack(direction) {
   loadTrack(nextIndex, true);
 }
 
+function handleTrackEnded() {
+  const hasNextTrack = state.currentIndex < state.tracks.length - 1;
+  if (hasNextTrack) {
+    loadTrack(state.currentIndex + 1, true);
+    return;
+  }
+  if (state.playbackMode === "loop") {
+    if (state.tracks.length === 1) {
+      elements.audio.currentTime = 0;
+      playCurrent();
+    } else {
+      loadTrack(0, true);
+    }
+    return;
+  }
+
+  updatePlaybackUI(false);
+  elements.playbackStatus.textContent = "播放完毕";
+}
+
 function updatePlaybackUI(isPlaying) {
   elements.playButton.replaceChildren(icon(isPlaying ? "pause" : "play"));
   elements.playButton.title = isPlaying ? "暂停" : "播放";
@@ -285,6 +319,40 @@ function updateVolumeIcon() {
   refreshIcons();
 }
 
+function updatePlaybackModeUI() {
+  elements.modeButtons.forEach((button) => {
+    const isActive = button.dataset.playbackMode === state.playbackMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+async function setPlaybackMode(mode) {
+  if (mode === state.playbackMode || (mode !== "loop" && mode !== "sequence")) {
+    return;
+  }
+
+  elements.modeButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    const settings = await request("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playback_mode: mode }),
+    });
+    state.playbackMode = settings.playback_mode;
+    updatePlaybackModeUI();
+    showToast(state.playbackMode === "loop" ? "已切换为循环播放" : "已切换为顺序播放");
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    elements.modeButtons.forEach((button) => {
+      button.disabled = false;
+    });
+  }
+}
+
 async function setDefault() {
   const track = currentTrack();
   if (!track || track.is_default) {
@@ -346,6 +414,9 @@ elements.previousButton.addEventListener("click", () => {
   changeTrack(-1);
 });
 elements.defaultButton.addEventListener("click", setDefault);
+elements.modeButtons.forEach((button) => {
+  button.addEventListener("click", () => setPlaybackMode(button.dataset.playbackMode));
+});
 elements.uploadButton.addEventListener("click", () => elements.fileInput.click());
 elements.fileInput.addEventListener("change", () => {
   const [file] = elements.fileInput.files;
@@ -390,7 +461,7 @@ elements.audio.addEventListener("playing", () => updatePlaybackUI(true));
 elements.audio.addEventListener("pause", () => updatePlaybackUI(false));
 elements.audio.addEventListener("timeupdate", updateTimeline);
 elements.audio.addEventListener("durationchange", updateTimeline);
-elements.audio.addEventListener("ended", () => changeTrack(1));
+elements.audio.addEventListener("ended", handleTrackEnded);
 elements.audio.addEventListener("waiting", () => {
   if (!elements.audio.paused) {
     elements.playbackStatus.textContent = "正在缓冲";
@@ -415,5 +486,6 @@ try {
 }
 
 updateVolumeIcon();
+updatePlaybackModeUI();
 setControlAvailability();
-loadTracks();
+loadSettings().then(() => loadTracks());

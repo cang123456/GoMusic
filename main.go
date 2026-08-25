@@ -21,10 +21,12 @@ import (
 )
 
 const (
-	defaultAddress  = ":8080"
-	defaultMusicDir = "data/music"
-	defaultDBPath   = "data/music.db"
-	maxUploadSize   = 100 << 20
+	defaultAddress       = ":8080"
+	defaultMusicDir      = "data/music"
+	defaultDBPath        = "data/music.db"
+	maxUploadSize        = 100 << 20
+	playbackModeLoop     = "loop"
+	playbackModeSequence = "sequence"
 )
 
 var supportedAudio = map[string]string{
@@ -50,6 +52,10 @@ type Track struct {
 	Filename  string `json:"filename"`
 	IsDefault bool   `json:"is_default"`
 	AudioURL  string `json:"audio_url"`
+}
+
+type Settings struct {
+	PlaybackMode string `json:"playback_mode"`
 }
 
 func main() {
@@ -120,6 +126,13 @@ func (a *App) initialize() error {
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS tracks_one_default
 			ON tracks(is_default) WHERE is_default = 1;
+		CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);
+		INSERT INTO settings (key, value)
+			VALUES ('playback_mode', 'loop')
+			ON CONFLICT(key) DO NOTHING;
 	`
 	if _, err := a.db.Exec(schema); err != nil {
 		return fmt.Errorf("初始化数据库: %w", err)
@@ -219,6 +232,8 @@ func (a *App) configureRoutes() error {
 	mux.HandleFunc("POST /api/tracks", a.uploadTrack)
 	mux.HandleFunc("GET /api/tracks/{id}/audio", a.serveAudio)
 	mux.HandleFunc("PUT /api/default", a.setDefaultTrack)
+	mux.HandleFunc("GET /api/settings", a.getSettings)
+	mux.HandleFunc("PUT /api/settings", a.updateSettings)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -262,6 +277,37 @@ func (a *App) listTracks(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tracks": tracks})
+}
+
+func (a *App) getSettings(w http.ResponseWriter, _ *http.Request) {
+	var settings Settings
+	if err := a.db.QueryRow(
+		`SELECT value FROM settings WHERE key = 'playback_mode'`,
+	).Scan(&settings.PlaybackMode); err != nil {
+		writeError(w, http.StatusInternalServerError, "无法读取播放设置")
+		return
+	}
+	writeJSON(w, http.StatusOK, settings)
+}
+
+func (a *App) updateSettings(w http.ResponseWriter, r *http.Request) {
+	var settings Settings
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&settings); err != nil || !isPlaybackMode(settings.PlaybackMode) {
+		writeError(w, http.StatusBadRequest, "播放模式仅支持 loop 或 sequence")
+		return
+	}
+
+	if _, err := a.db.Exec(
+		`INSERT INTO settings (key, value) VALUES ('playback_mode', ?)
+		 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+		settings.PlaybackMode,
+	); err != nil {
+		writeError(w, http.StatusInternalServerError, "无法保存播放设置")
+		return
+	}
+	writeJSON(w, http.StatusOK, settings)
 }
 
 func (a *App) uploadTrack(w http.ResponseWriter, r *http.Request) {
@@ -448,6 +494,10 @@ func (a *App) serveAudio(w http.ResponseWriter, r *http.Request) {
 func isSupportedAudio(filename string) bool {
 	_, ok := supportedAudio[strings.ToLower(filepath.Ext(filename))]
 	return ok
+}
+
+func isPlaybackMode(mode string) bool {
+	return mode == playbackModeLoop || mode == playbackModeSequence
 }
 
 func cleanFilename(filename string) string {

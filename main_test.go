@@ -58,6 +58,23 @@ func getTracks(t *testing.T, app *App) []Track {
 	return payload.Tracks
 }
 
+func getSettings(t *testing.T, app *App) Settings {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /api/settings status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var settings Settings
+	if err := json.Unmarshal(response.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	return settings
+}
+
 func TestNewAppScansMusicAndSetsDefault(t *testing.T) {
 	app := newTestApp(t, map[string][]byte{
 		"第一首.mp3":   {0x49, 0x44, 0x33, 0x01},
@@ -126,6 +143,58 @@ func TestSetDefaultTrack(t *testing.T) {
 	}
 	if defaultCount != 1 {
 		t.Errorf("default count = %d, want 1", defaultCount)
+	}
+}
+
+func TestPlaybackModeDefaultsToLoopAndPersists(t *testing.T) {
+	root := t.TempDir()
+	musicDir := filepath.Join(root, "music")
+	dbPath := filepath.Join(root, "music.db")
+
+	app, err := NewApp(musicDir, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := getSettings(t, app).PlaybackMode; got != playbackModeLoop {
+		t.Fatalf("initial playback mode = %q, want %q", got, playbackModeLoop)
+	}
+
+	body := bytes.NewBufferString(`{"playback_mode":"sequence"}`)
+	request := httptest.NewRequest(http.MethodPut, "/api/settings", body)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("PUT /api/settings status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if err := app.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err = NewApp(musicDir, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if got := getSettings(t, app).PlaybackMode; got != playbackModeSequence {
+		t.Errorf("persisted playback mode = %q, want %q", got, playbackModeSequence)
+	}
+}
+
+func TestPlaybackModeRejectsInvalidValue(t *testing.T) {
+	app := newTestApp(t, nil)
+
+	body := bytes.NewBufferString(`{"playback_mode":"random"}`)
+	request := httptest.NewRequest(http.MethodPut, "/api/settings", body)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /api/settings status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	if got := getSettings(t, app).PlaybackMode; got != playbackModeLoop {
+		t.Errorf("playback mode changed to %q after invalid request", got)
 	}
 }
 
